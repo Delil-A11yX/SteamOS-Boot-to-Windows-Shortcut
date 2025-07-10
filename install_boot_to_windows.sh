@@ -22,6 +22,7 @@ error_exit() {
 # Finds the Windows GRUB boot entry
 find_windows_grub_entry() {
     log_message "Searching for Windows Boot Manager entry in GRUB..."
+    # 'grep -Po' with lookbehind to get only the entry name
     local entry=$(grep -Po "(?<=menuentry ')[^']*(?=')" /boot/grub/grub.cfg | grep -i "Windows Boot Manager" | head -n 1)
 
     if [ -z "$entry" ]; then
@@ -45,11 +46,11 @@ create_boot_script() {
 
 echo "Booting to Windows..."
 # Command to set the next boot target to Windows
-# The 'sudo' command here will NOT ask for a password due to the sudoers configuration.
+# The 'sudo' command here will NOT ask for a password due to the sudoers configuration set by the installer.
 sudo grub-reboot "$windows_entry"
 
 # Initiate the reboot
-# The 'sudo' command here will NOT NOT ask for a password due to the sudoers configuration.
+# The 'sudo' command here will NOT ask for a password due to the sudoers configuration.
 sudo reboot
 
 # If reboot fails for some reason, inform the user
@@ -69,27 +70,23 @@ EOF
 }
 
 # Configures sudoers to allow the current user to run the boot script without a password.
-# This function is executed with root privileges by pkexec.
+# This function requires root privileges, which will be requested via pkexec.
 configure_sudoers() {
     log_message "Configuring sudoers to allow passwordless execution of the boot script..."
     local sudoers_file="/etc/sudoers.d/99_boot_to_windows_nopasswd"
-    local current_user="$SUDO_USER" # Get the original user who ran pkexec
+    local current_user=$(whoami) # Get the current username (the one running the script)
 
     if [ -z "$current_user" ]; then
-        error_exit "Could not determine original user (SUDO_USER not set). Aborting sudoers configuration."
+        error_exit "Could not determine current user. Aborting sudoers configuration."
     fi
 
     local entry_line="$current_user ALL=(ALL) NOPASSWD: $BOOT_SCRIPT_PATH"
 
-    if [ -f "$sudoers_file" ]; then
-        log_message "Existing sudoers configuration found at $sudoers_file. Removing it first."
-        rm "$sudoers_file" || error_exit "Failed to remove existing sudoers file." # No sudo needed here as script runs as root
-    fi
+    # Use pkexec to write the sudoers file, as this requires root privileges
+    echo "$entry_line" | pkexec tee "$sudoers_file" > /dev/null || error_exit "Failed to write sudoers entry with pkexec."
 
-    echo "$entry_line" > "$sudoers_file" || error_exit "Failed to write sudoers entry." # No sudo needed here as script runs as root
-
-    # Set correct permissions for the sudoers file
-    chmod 0440 "$sudoers_file" || error_exit "Failed to set correct permissions for sudoers file." # No sudo needed here
+    # Use pkexec to set correct permissions for the sudoers file
+    pkexec chmod 0440 "$sudoers_file" || error_exit "Failed to set correct permissions for sudoers file with pkexec."
     log_message "Sudoers configured successfully. The boot script can now be run by $current_user without a password."
     echo ""
     log_message "IMPORTANT: The sudoers configuration means the '$BOOT_SCRIPT_PATH' script can be run with sudo without a password."
@@ -121,15 +118,8 @@ echo "This script will find your Windows Boot Manager entry, create a boot scrip
 echo "configure your system so the script can run without a password, and then"
 echo "guide you on how to add it to your Steam library for Gaming Mode."
 echo ""
-echo "This script requires **root permissions** to run system commands and interact with system files."
-echo "You will be prompted for your password via a graphical prompt (pkexec) during this installation process."
+echo "This script requires **root permissions** for certain steps (like configuring sudoers), which will be requested via a **graphical password prompt (pkexec)** when needed."
 read -p "Press Enter to continue..."
-
-# pkexec provides SUDO_USER variable
-if [ -z "$SUDO_USER" ]; then
-    error_exit "This script must be run via pkexec. Please use the provided .desktop file."
-fi
-
 
 # 1. Find Windows GRUB entry
 WINDOWS_GRUB_ENTRY=$(find_windows_grub_entry) || exit 1 # Exit if function failed
@@ -144,11 +134,10 @@ if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
     exit 0
 fi
 
-# 2. Create the boot script
+# 2. Create the boot script (does not require root for this specific step)
 create_boot_script "$WINDOWS_GRUB_ENTRY" || exit 1 # Exit if function failed
 
-# 3. Configure sudoers for passwordless execution
-# This function is now run with root privileges directly.
+# 3. Configure sudoers for passwordless execution (requires pkexec for root privileges)
 configure_sudoers || exit 1 # Exit if function failed
 
 # 4. Provide instructions for adding to Steam
