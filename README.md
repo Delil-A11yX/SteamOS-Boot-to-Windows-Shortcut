@@ -16,7 +16,7 @@ Follow these steps on your ROG Ally or Steam Deck (ensure you are in **Desktop M
 1.  **Download the Installer:**
     * Open a browser on your device (e.g., Firefox).
     * Navigate to the direct download link for the installer:
-        [Download `Boot_to_Windows.desktop` Installer](https://github.com/Delil-A11yX/SteamOS-Boot-to-Windows-Shortcut/raw/main/Boot_to_Windows.desktop)
+        [Download `Boot_to_Windows.desktop` Installer](https://github.com/Delil-A11yX/SteamOS-Mount-Tool/releases/download/v1.0/Boot_to_Windows.desktop)
     * Download this file to your `~/Downloads` folder or directly to your Desktop.
 
 2.  **Move to Desktop:**
