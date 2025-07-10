@@ -1,7 +1,7 @@
 [Desktop Entry]
 Name=Boot to Windows Installer
 Comment=Install a shortcut to boot directly into Windows from SteamOS Gaming Mode.
-Exec=konsole -e "bash -c 'wget -qO - https://raw.githubusercontent.com/Delil-A11yX/SteamOS-Boot-to-Windows-Shortcut/refs/heads/main/install_boot_to_windows.sh | bash'"
+Exec=konsole -e "TEMP_SCRIPT=$(mktemp); wget -qO \"$TEMP_SCRIPT\" https://raw.githubusercontent.com/Delil-A11yX/SteamOS-Boot-to-Windows-Shortcut/refs/heads/main/install_boot_to_windows.sh && chmod +x \"$TEMP_SCRIPT\" && \"$TEMP_SCRIPT\"; rm -f \"$TEMP_SCRIPT\"; echo 'Installation completed. Press Enter to close.'; read -n 1"
 Icon=utilities-terminal
 Terminal=true
 Type=Application
