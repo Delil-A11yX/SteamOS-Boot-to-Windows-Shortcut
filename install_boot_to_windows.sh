@@ -72,13 +72,16 @@ EOF
 configure_sudoers() {
     log_message "Configuring sudoers to allow passwordless execution of the boot script..."
     local sudoers_file="/etc/sudoers.d/99_boot_to_windows_nopasswd"
-    local entry_line="deck ALL=(ALL) NOPASSWD: $BOOT_SCRIPT_PATH"
+    # Get the current username dynamically
+    local current_user=$(whoami)
+    local entry_line="$current_user ALL=(ALL) NOPASSWD: $BOOT_SCRIPT_PATH"
 
     if [ -f "$sudoers_file" ]; then
         log_message "Existing sudoers configuration found at $sudoers_file. Removing it first."
         sudo rm "$sudoers_file" || error_exit "Failed to remove existing sudoers file."
     fi
 
+    # Using tee with sudo to write to a root-owned file
     echo "$entry_line" | sudo tee "$sudoers_file" > /dev/null || error_exit "Failed to write sudoers entry."
 
     # Set correct permissions for the sudoers file
