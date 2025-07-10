@@ -45,9 +45,11 @@ create_boot_script() {
 
 echo "Booting to Windows..."
 # Command to set the next boot target to Windows
+# The 'sudo' command here will NOT ask for a password due to the sudoers configuration.
 sudo grub-reboot "$windows_entry"
 
 # Initiate the reboot
+# The 'sudo' command here will NOT ask for a password due to the sudoers configuration.
 sudo reboot
 
 # If reboot fails for some reason, inform the user
@@ -66,29 +68,30 @@ EOF
     fi
 }
 
-# Attempts to add the script as a non-Steam game by modifying shortcuts.vdf
-# This is highly experimental and relies on a specific VDF structure that might change.
-# A more robust solution would involve a dedicated VDF parsing tool (e.g., Python with a VDF library).
+# Configures sudoers to allow the deck user to run the boot script without a password.
+configure_sudoers() {
+    log_message "Configuring sudoers to allow passwordless execution of the boot script..."
+    local sudoers_file="/etc/sudoers.d/99_boot_to_windows_nopasswd"
+    local entry_line="deck ALL=(ALL) NOPASSWD: $BOOT_SCRIPT_PATH"
+
+    if [ -f "$sudoers_file" ]; then
+        log_message "Existing sudoers configuration found at $sudoers_file. Removing it first."
+        sudo rm "$sudoers_file" || error_exit "Failed to remove existing sudoers file."
+    fi
+
+    echo "$entry_line" | sudo tee "$sudoers_file" > /dev/null || error_exit "Failed to write sudoers entry."
+
+    # Set correct permissions for the sudoers file
+    sudo chmod 0440 "$sudoers_file" || error_exit "Failed to set correct permissions for sudoers file."
+    log_message "Sudoers configured successfully. The boot script can now be run without a password."
+    echo ""
+    log_message "IMPORTANT: The sudoers configuration means the '$BOOT_SCRIPT_PATH' script can be run with sudo without a password."
+    log_message "Ensure you understand that this grants elevated privileges to *that specific script*."
+}
+
+
+# Attempts to add the script as a non-Steam game (instructions only)
 add_to_steam_library_auto() {
-    log_message "Attempting to automatically add '$STEAM_APP_NAME' to your Steam library..."
-
-    local steam_config_dir="$HOME/.steam/steam/userdata"
-    local steam_user_id=$(find "$steam_config_dir" -maxdepth 1 -mindepth 1 -type d -printf '%f\n' | head -n 1)
-
-    if [ -z "$steam_user_id" ]; then
-        log_message "Could not find Steam user ID. Automated addition failed. Please add manually."
-        return 1
-    fi
-
-    local shortcuts_vdf="$steam_config_dir/$steam_user_id/config/shortcuts.vdf"
-
-    if [ ! -f "$shortcuts_vdf" ]; then
-        log_message "shortcuts.vdf not found at '$shortcuts_vdf'. Automated addition failed. Please add manually."
-        return 1
-    fi
-
-    log_message "Found Steam shortcuts.vdf at: $shortcuts_vdf"
-
     log_message "Due to the complexity and fragility of directly modifying Steam's binary configuration files (shortcuts.vdf) with a simple bash script, a fully automatic and robust addition might not be possible."
     log_message "Therefore, the script will create the necessary executable, and we will provide very clear instructions for the final, reliable step of adding it to Steam."
     log_message "This ensures your Steam configuration remains intact and functional."
@@ -109,9 +112,11 @@ add_to_steam_library_auto() {
 
 log_message "Starting Automated 'Boot to Windows' Setup"
 echo "This script will find your Windows Boot Manager entry, create a boot script,"
-echo "and then guide you on how to add it to your Steam library for Gaming Mode."
+echo "configure your system so the script can run without a password, and then"
+echo "guide you on how to add it to your Steam library for Gaming Mode."
 echo ""
 echo "This script requires **sudo permissions** to run system commands and interact with system files."
+echo "You will be prompted for your sudo password ONCE during this installation process."
 read -p "Press Enter to continue..."
 
 # 0. Check for sudo permissions by running a dummy command
@@ -133,10 +138,14 @@ fi
 # 2. Create the boot script
 create_boot_script "$WINDOWS_GRUB_ENTRY" || exit 1 # Exit if function failed
 
-# 3. Provide instructions for adding to Steam
+# 3. Configure sudoers for passwordless execution
+configure_sudoers || exit 1 # Exit if function failed
+
+# 4. Provide instructions for adding to Steam
 add_to_steam_library_auto
 
 log_message "Setup Complete!"
 echo "Your 'Boot to Windows' script is located at: $BOOT_SCRIPT_PATH"
+echo "It is now configured to run without a password prompt in Gaming Mode."
 echo "Please follow the instructions above to add it to Steam."
 echo "For support or if you encounter issues, please refer to the GitHub repository's README."
