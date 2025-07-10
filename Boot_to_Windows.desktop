@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Boot to Windows Installer
+Comment=Install a shortcut to boot directly into Windows from SteamOS Gaming Mode.
+Exec=konsole -e "bash -c 'wget -qO - https://raw.githubusercontent.com/Delil-A11yX/SteamOS-Boot-to-Windows-Shortcut/refs/heads/main/install_boot_to_windows.sh | bash'"
+Icon=utilities-terminal
+Terminal=true
+Type=Application
+Categories=System;Utility;
+StartupNotify=true
