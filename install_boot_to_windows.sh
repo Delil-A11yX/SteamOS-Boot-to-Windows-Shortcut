@@ -49,7 +49,7 @@ echo "Booting to Windows..."
 sudo grub-reboot "$windows_entry"
 
 # Initiate the reboot
-# The 'sudo' command here will NOT ask for a password due to the sudoers configuration.
+# The 'sudo' command here will NOT NOT ask for a password due to the sudoers configuration.
 sudo reboot
 
 # If reboot fails for some reason, inform the user
@@ -68,36 +68,39 @@ EOF
     fi
 }
 
-# Configures sudoers to allow the deck user to run the boot script without a password.
+# Configures sudoers to allow the current user to run the boot script without a password.
+# This function is executed with root privileges by pkexec.
 configure_sudoers() {
     log_message "Configuring sudoers to allow passwordless execution of the boot script..."
     local sudoers_file="/etc/sudoers.d/99_boot_to_windows_nopasswd"
-    # Get the current username dynamically
-    local current_user=$(whoami)
+    local current_user="$SUDO_USER" # Get the original user who ran pkexec
+
+    if [ -z "$current_user" ]; then
+        error_exit "Could not determine original user (SUDO_USER not set). Aborting sudoers configuration."
+    fi
+
     local entry_line="$current_user ALL=(ALL) NOPASSWD: $BOOT_SCRIPT_PATH"
 
     if [ -f "$sudoers_file" ]; then
         log_message "Existing sudoers configuration found at $sudoers_file. Removing it first."
-        sudo rm "$sudoers_file" || error_exit "Failed to remove existing sudoers file."
+        rm "$sudoers_file" || error_exit "Failed to remove existing sudoers file." # No sudo needed here as script runs as root
     fi
 
-    # Using tee with sudo to write to a root-owned file
-    echo "$entry_line" | sudo tee "$sudoers_file" > /dev/null || error_exit "Failed to write sudoers entry."
+    echo "$entry_line" > "$sudoers_file" || error_exit "Failed to write sudoers entry." # No sudo needed here as script runs as root
 
     # Set correct permissions for the sudoers file
-    sudo chmod 0440 "$sudoers_file" || error_exit "Failed to set correct permissions for sudoers file."
-    log_message "Sudoers configured successfully. The boot script can now be run without a password."
+    chmod 0440 "$sudoers_file" || error_exit "Failed to set correct permissions for sudoers file." # No sudo needed here
+    log_message "Sudoers configured successfully. The boot script can now be run by $current_user without a password."
     echo ""
     log_message "IMPORTANT: The sudoers configuration means the '$BOOT_SCRIPT_PATH' script can be run with sudo without a password."
     log_message "Ensure you understand that this grants elevated privileges to *that specific script*."
 }
 
 
-# Attempts to add the script as a non-Steam game (instructions only)
+# Provides instructions for adding to Steam
 add_to_steam_library_auto() {
     log_message "Due to the complexity and fragility of directly modifying Steam's binary configuration files (shortcuts.vdf) with a simple bash script, a fully automatic and robust addition might not be possible."
     log_message "Therefore, the script will create the necessary executable, and we will provide very clear instructions for the final, reliable step of adding it to Steam."
-    log_message "This ensures your Steam configuration remains intact and functional."
     log_message ""
     log_message "--- Manual Steam Addition Instructions ---"
     log_message "1. Switch to Desktop Mode (if not already there)."
@@ -118,12 +121,15 @@ echo "This script will find your Windows Boot Manager entry, create a boot scrip
 echo "configure your system so the script can run without a password, and then"
 echo "guide you on how to add it to your Steam library for Gaming Mode."
 echo ""
-echo "This script requires **sudo permissions** to run system commands and interact with system files."
-echo "You will be prompted for your sudo password ONCE during this installation process."
+echo "This script requires **root permissions** to run system commands and interact with system files."
+echo "You will be prompted for your password via a graphical prompt (pkexec) during this installation process."
 read -p "Press Enter to continue..."
 
-# 0. Check for sudo permissions by running a dummy command
-sudo -v || error_exit "Sudo permissions required. Please ensure you have sudo access and enter your password when prompted."
+# pkexec provides SUDO_USER variable
+if [ -z "$SUDO_USER" ]; then
+    error_exit "This script must be run via pkexec. Please use the provided .desktop file."
+fi
+
 
 # 1. Find Windows GRUB entry
 WINDOWS_GRUB_ENTRY=$(find_windows_grub_entry) || exit 1 # Exit if function failed
@@ -142,6 +148,7 @@ fi
 create_boot_script "$WINDOWS_GRUB_ENTRY" || exit 1 # Exit if function failed
 
 # 3. Configure sudoers for passwordless execution
+# This function is now run with root privileges directly.
 configure_sudoers || exit 1 # Exit if function failed
 
 # 4. Provide instructions for adding to Steam
