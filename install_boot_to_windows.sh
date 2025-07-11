@@ -138,7 +138,8 @@ echo "guide you on how to add it to your Steam library for Gaming Mode."
 echo ""
 echo "This script requires **root permissions** to perform certain actions (e.g., configuring sudoers)."
 echo "You will be prompted for your password via the terminal during this installation process."
-read -p "Press Enter to continue..."
+
+# Removed: read -p "Press Enter to continue..." - as this might be causing issues with interactivity.
 
 # This check ensures the script is run with sudo
 if [ "$(id -u)" -ne 0 ]; then
@@ -149,14 +150,16 @@ fi
 WINDOWS_EFI_ID=$(find_windows_efi_entry) || exit 1 # Exit if function failed
 
 echo ""
-log_message "Confirmation Required"
-echo "The script will use the following Windows EFI entry ID:"
-echo "-> '$WINDOWS_EFI_ID'"
-read -p "Is this correct? (y/n): " confirm
-if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
-    log_message "Setup aborted by user."
-    exit 0
-fi
+# Removed: Confirmation Required section, as interactivity is problematic
+# log_message "Confirmation Required"
+# echo "The script will use the following Windows EFI entry ID:"
+# echo "-> '$WINDOWS_EFI_ID'"
+# read -p "Is this correct? (y/n): " confirm
+# if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
+#     log_message "Setup aborted by user."
+#     exit 0
+# fi
+
 
 # 2. Create the boot script
 create_boot_script "$WINDOWS_EFI_ID" || exit 1 # Exit if function failed
@@ -172,3 +175,5 @@ echo "Your 'Boot to Windows' script is located at: $BOOT_SCRIPT_PATH"
 echo "It is now configured to run without a password prompt in Gaming Mode."
 echo "Please follow the instructions above to add it to Steam."
 echo "For support or if you encounter issues, please refer to the GitHub repository's README."
+echo "Press Enter to close this window..." # Added a final prompt to keep window open
+read -n 1 # Added a final read to keep window open
