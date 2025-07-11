@@ -7,6 +7,17 @@ BOOT_SCRIPT_PATH="$INSTALL_DIR/$BOOT_SCRIPT_FILENAME"
 STEAM_APP_NAME="Boot To Windows" # How it will appear in Steam
 STEAM_APP_ID="boot_to_windows" # A unique identifier for Steam, avoid spaces and special chars
 
+# Get the original user who called sudo (passed as first argument from .desktop file)
+# This is crucial for correctly setting sudoers permissions.
+ORIGINAL_CALLING_USER="$1"
+if [ -z "$ORIGINAL_CALLING_USER" ]; then
+    # Fallback if argument is not provided, though it should be.
+    # This might happen if the script is run manually without an argument.
+    ORIGINAL_CALLING_USER=$(logname 2>/dev/null || whoami)
+    log_message "Warning: User not passed as argument. Using '$ORIGINAL_CALLING_USER' from whoami/logname."
+fi
+
+
 # --- Functions ---
 
 log_message() {
@@ -40,6 +51,7 @@ create_boot_script() {
     local windows_efi_id="$1"
 
     log_message "Creating the boot script: $BOOT_SCRIPT_PATH"
+    # Ensure the directory is created by the user running the script (which will be root)
     mkdir -p "$INSTALL_DIR" || error_exit "Failed to create installation directory: $INSTALL_DIR"
 
     cat << EOF > "$BOOT_SCRIPT_PATH"
@@ -62,7 +74,9 @@ EOF
 
     if [ $? -eq 0 ]; then
         log_message "Boot script created successfully."
-        chown "$SUDO_USER":"$SUDO_USER" "$BOOT_SCRIPT_PATH" || log_message "Warning: Could not change ownership of boot script."
+        # Permissions should ensure the original user can read/execute
+        # Ownership must be set for the actual user, not root, for Steam to launch it.
+        chown "$ORIGINAL_CALLING_USER":"$ORIGINAL_CALLING_USER" "$BOOT_SCRIPT_PATH" || log_message "Warning: Could not change ownership of boot script to $ORIGINAL_CALLING_USER."
         chmod +x "$BOOT_SCRIPT_PATH" || error_exit "Failed to make script executable."
         log_message "Boot script made executable."
         return 0
@@ -72,19 +86,17 @@ EOF
 }
 
 # Configures sudoers to allow the original user to run the boot script without a password.
+# This function is executed with root privileges, so 'sudo' is not needed within this function.
 configure_sudoers() {
-    log_message "Configuring sudoers to allow passwordless execution of the boot script..."
+    log_message "Configuring sudoers to allow passwordless execution of the boot script for user '$ORIGINAL_CALLING_USER'..."
     local sudoers_file="/etc/sudoers.d/99_boot_to_windows_nopasswd"
-    local original_user="$SUDO_USER"
 
-    if [ -z "$original_user" ]; then
-        error_exit "Could not determine original user (SUDO_USER not set). Aborting sudoers configuration."
+    if [ -z "$ORIGINAL_CALLING_USER" ]; then
+        error_exit "Original calling user is not set. Cannot configure sudoers. Aborting."
     fi
 
-    # Note: efibootmgr might also need NOPASSWD if called directly by the user,
-    # but the primary goal is to allow the boot script to reboot and set boot entry.
-    # We add efibootmgr to the sudoers for completeness, as it's used in the boot script.
-    local entry_line="$original_user ALL=(ALL) NOPASSWD: $BOOT_SCRIPT_PATH, /usr/sbin/efibootmgr, /usr/sbin/reboot"
+    # efibootmgr and reboot are explicitly added to NOPASSWD as they are used in the boot script.
+    local entry_line="$ORIGINAL_CALLING_USER ALL=(ALL) NOPASSWD: $BOOT_SCRIPT_PATH, /usr/sbin/efibootmgr, /usr/sbin/reboot"
 
     if [ -f "$sudoers_file" ]; then
         log_message "Existing sudoers configuration found at $sudoers_file. Removing it first."
@@ -93,11 +105,12 @@ configure_sudoers() {
 
     echo "$entry_line" > "$sudoers_file" || error_exit "Failed to write sudoers entry."
     chmod 0440 "$sudoers_file" || error_exit "Failed to set correct permissions for sudoers file."
-    log_message "Sudoers configured successfully. The boot script can now be run by $original_user without a password."
+    log_message "Sudoers configured successfully. The boot script can now be run by $ORIGINAL_CALLING_USER without a password."
     echo ""
-    log_message "IMPORTANT: The sudoers configuration grants passwordless sudo to '$BOOT_SCRIPT_PATH', '/usr/sbin/efibootmgr', and '/usr/sbin/reboot' for user '$original_user'."
+    log_message "IMPORTANT: The sudoers configuration grants passwordless sudo to '$BOOT_SCRIPT_PATH', '/usr/sbin/efibootmgr', and '/usr/sbin/reboot' for user '$ORIGINAL_CALLING_USER'."
     log_message "Ensure you understand these elevated privileges."
 }
+
 
 # Provides instructions for adding to Steam (remains the same)
 add_to_steam_library_auto() {
@@ -115,6 +128,7 @@ add_to_steam_library_auto() {
     return 0
 }
 
+
 # --- Main Execution ---
 
 log_message "Starting Automated 'Boot to Windows' Setup"
@@ -126,6 +140,7 @@ echo "This script requires **root permissions** to perform certain actions (e.g.
 echo "You will be prompted for your password via the terminal during this installation process."
 read -p "Press Enter to continue..."
 
+# This check ensures the script is run with sudo
 if [ "$(id -u)" -ne 0 ]; then
     error_exit "This script must be run with root privileges. Please ensure you are running it with 'sudo' or via the provided .desktop file."
 fi
