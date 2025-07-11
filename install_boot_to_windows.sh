@@ -1,15 +1,14 @@
 #!/bin/bash
 
 # --- Configuration ---
-# Store the boot script in the HOME directory of the *original calling user*
-INSTALL_DIR="/home/$ORIGINAL_CALLING_USER/SteamOS_Tools" # <--- CHANGED THIS LINE
+INSTALL_DIR="$HOME/SteamOS_Tools" # Where the boot script will be stored
 BOOT_SCRIPT_FILENAME="boot_to_windows.sh"
 BOOT_SCRIPT_PATH="$INSTALL_DIR/$BOOT_SCRIPT_FILENAME"
 STEAM_APP_NAME="Boot To Windows" # How it will appear in Steam
 STEAM_APP_ID="boot_to_windows" # A unique identifier for Steam, avoid spaces and special chars
 
 # Get the original user who called sudo (passed as first argument from .desktop file)
-# This is crucial for correctly setting sudoers permissions and installation path.
+# This is crucial for correctly setting sudoers permissions.
 ORIGINAL_CALLING_USER="$1"
 if [ -z "$ORIGINAL_CALLING_USER" ]; then
     # Fallback if argument is not provided, though it should be.
@@ -53,10 +52,7 @@ create_boot_script() {
 
     log_message "Creating the boot script: $BOOT_SCRIPT_PATH"
     # Ensure the directory is created by the user running the script (which will be root)
-    # The mkdir -p needs to be owned by the ORIGINAL_CALLING_USER to allow Steam to see it.
-    # We create it with root, but then chown it immediately.
     mkdir -p "$INSTALL_DIR" || error_exit "Failed to create installation directory: $INSTALL_DIR"
-    chown "$ORIGINAL_CALLING_USER":"$ORIGINAL_CALLING_USER" "$INSTALL_DIR" || log_message "Warning: Could not change ownership of installation directory to $ORIGINAL_CALLING_USER." # <--- ADDED THIS LINE
 
     cat << EOF > "$BOOT_SCRIPT_PATH"
 #!/bin/bash
