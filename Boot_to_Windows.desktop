@@ -1,7 +1,7 @@
 [Desktop Entry]
 Name=Boot to Windows Installer
-Comment=Installiert eine Verknüpfung, um direkt nach Windows zu booten.
-Exec=konsole -e "bash -c \\"curl -sL 'https://raw.githubusercontent.com/Delil-A11yX/SteamOS-Boot-to-Windows-Shortcut/main/install_boot_to_windows.sh' > /tmp/install_boot_to_windows.sh && chmod +x /tmp/install_boot_to_windows.sh && sudo /tmp/install_boot_to_windows.sh; echo; read -p 'Installation abgeschlossen. Drücke Enter, um dieses Fenster zu schließen...'\\""
+Comment=Sets up a shortcut to boot directly into Windows.
+Exec=konsole -e "bash -c \\"curl -sL 'https://raw.githubusercontent.com/Delil-A11yX/SteamOS-Boot-to-Windows-Shortcut/main/install_boot_to_windows.sh' > /tmp/install_boot_to_windows.sh && chmod +x /tmp/install_boot_to_windows.sh && sudo /tmp/install_boot_to_windows.sh; echo; read -p 'Setup complete. Press Enter to close this window...'\\""
 Icon=utilities-terminal
 Terminal=true
 Type=Application
