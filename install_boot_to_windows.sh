@@ -1,7 +1,7 @@
 #!/bin/bash
 #
-# Boot to Windows - One-Click Installer for SteamOS
-# Final version with read-only filesystem handling for SteamOS.
+# Boot to Windows - Installer Script for SteamOS
+# Final version with correct line endings and read-only filesystem handling.
 #
 
 # --- Functions ---
@@ -73,7 +73,7 @@ log_message "SETUP COMPLETE!"
 echo
 echo "A new command is now available on your system."
 echo "Please add it to Steam:"
-echo "1. Go to 'Games' -> 'Add a Non-Steam Game to My Library...'"
+echo "1. In Steam's Desktop Mode, go to 'Games' -> 'Add a Non-Steam Game to My Library...'"
 echo "2. Click 'Browse...'"
 echo "3. Navigate to the path: /usr/local/bin/"
 echo "4. Select the file named 'boot-to-windows' and add it."
