@@ -1,6 +1,8 @@
 #!/bin/bash
-# Script to automatically create a "Boot to Windows" shortcut for SteamOS.
-# Based on a proven manual method.
+#
+# Boot to Windows - Installer Script for SteamOS
+# This script will be executed with sudo privileges.
+#
 
 # --- Functions ---
 log_message() {
@@ -16,6 +18,11 @@ error_exit() {
 # --- Main Execution ---
 log_message "Starting 'Boot to Windows' Setup"
 
+# Verify that the script is run as root and get the original user.
+if [ "$(id -u)" -ne 0 ] || [ -z "$SUDO_USER" ]; then
+    error_exit "This script must be run with 'sudo'. Please use the provided .desktop file."
+fi
+
 # 1. Find the Windows Boot entry
 log_message "Searching for Windows Boot Manager entry..."
 WINDOWS_ENTRY_ID=$(efibootmgr | grep -i "Windows Boot Manager" | grep -oP 'Boot\K\d{4}')
@@ -25,14 +32,17 @@ if [ -z "$WINDOWS_ENTRY_ID" ]; then
 fi
 log_message "Found Windows Boot entry: Boot$WINDOWS_ENTRY_ID"
 
-# 2. Create the final boot script
-# This script will be placed on the user's Desktop for easy access.
+# 2. Create the final boot script on the user's Desktop
 BOOT_SCRIPT_PATH="/home/$SUDO_USER/Desktop/Boot_to_Windows.sh"
 log_message "Creating the boot script at: $BOOT_SCRIPT_PATH"
 
-echo "#!/bin/bash" > "$BOOT_SCRIPT_PATH"
-echo "# This script sets the next boot to Windows and reboots the system." >> "$BOOT_SCRIPT_PATH"
-echo "sudo efibootmgr -n $WINDOWS_ENTRY_ID && sudo reboot" >> "$BOOT_SCRIPT_PATH"
+# Use a here-document to create the script file.
+cat << EOF > "$BOOT_SCRIPT_PATH"
+#!/bin/bash
+# This script sets the next boot to Windows and reboots the system.
+echo "Setting boot to Windows and rebooting..."
+sudo efibootmgr -n "$WINDOWS_ENTRY_ID" && sudo reboot
+EOF
 
 if [ $? -ne 0 ]; then
     error_exit "Failed to create the boot script."
@@ -44,15 +54,21 @@ chown "$SUDO_USER":"$SUDO_USER" "$BOOT_SCRIPT_PATH"
 log_message "Boot script created successfully and made executable."
 
 # 4. Create the sudoers rule for password-less execution
-SUDOERS_FILE="/etc/sudoers.d/99-boot-windows"
+SUDOERS_FILE="/etc/sudoers.d/99-boot-windows-nopasswd"
 log_message "Configuring sudoers for password-less execution..."
-# This rule allows any user in the 'wheel' group (which 'deck' is a part of)
-# to run efibootmgr and reboot without a password.
+# This rule allows any user in the 'wheel' group to run efibootmgr and reboot without a password.
+# This is a broad but effective rule for this use case.
 echo '%wheel ALL=(ALL) NOPASSWD: /usr/sbin/efibootmgr, /usr/sbin/reboot' > "$SUDOERS_FILE"
+if [ $? -ne 0 ]; then
+    error_exit "Failed to write sudoers rule."
+fi
+
 chmod 0440 "$SUDOERS_FILE"
+if [ $? -ne 0 ]; then
+    error_exit "Failed to set permissions on sudoers file."
+fi
 log_message "Sudoers rule created successfully."
 
 log_message "--- Setup Complete! ---"
 echo "A new executable file 'Boot_to_Windows.sh' has been created on your Desktop."
 echo "Please add this file to your Steam library now as a 'Non-Steam Game'."
-u
