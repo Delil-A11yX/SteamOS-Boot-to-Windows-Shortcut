@@ -1,76 +1,65 @@
 #!/bin/bash
 #
 # Boot to Windows - Installer Script for SteamOS
-# Final version: Correctly implements the user's proven sudoers rule method.
+# Final User-Friendly Version: Creates the final script on the user's Desktop.
 #
 
 echo "================================================="
 echo "=== Boot to Windows Shortcut Installer        ==="
 echo "================================================="
-echo
 
-# Verify the script is run as root.
-if [ "$(id -u)" -ne 0 ]; then
+# Verify script is run as root and get the original user.
+if [ -z "$SUDO_USER" ]; then
     echo "[ERROR] This script must be run with 'sudo'. Aborting."
-    sleep 5
     exit 1
 fi
 
-# --- 1. Disable SteamOS read-only mode ---
+# Temporarily disable SteamOS read-only mode
 echo
 echo "--- [STEP 1/4] Disabling SteamOS read-only mode..."
 sudo steamos-readonly disable
 echo "[OK] Filesystem is now writeable."
 
-# --- 2. Find Windows Boot Manager entry ---
+# Find Windows Boot Manager entry
 echo
 echo "--- [STEP 2/4] Searching for Windows Boot Manager entry..."
 WINDOWS_ENTRY_ID=$(efibootmgr | grep -i "Windows Boot Manager" | grep -oP 'Boot\K\d{4}')
 
 if [ -z "$WINDOWS_ENTRY_ID" ]; then
     echo "[ERROR] Could not find 'Windows Boot Manager' entry."
-    sudo steamos-readonly enable # Re-enable read-only mode on failure
+    sudo steamos-readonly enable
     exit 1
 fi
 echo "[OK] Found Windows Boot entry: Boot$WINDOWS_ENTRY_ID"
 
-# --- 3. Create the boot script and the sudoers rule ---
-FINAL_SCRIPT_PATH="/usr/local/bin/boot-windows.sh"
-SUDOERS_FILE="/etc/sudoers.d/efibootmgr-rule" # Using the exact name from your manual guide
-
+# Create the final boot script on the user's Desktop
+FINAL_SCRIPT_PATH="/home/$SUDO_USER/Desktop/boot-windows.sh"
 echo
-echo "--- [STEP 3/4] Creating boot script and sudoers rule..."
+echo "--- [STEP 3/4] Creating the final boot script on your Desktop..."
 
-# Create the final boot script
 cat << EOF > "$FINAL_SCRIPT_PATH"
 #!/bin/bash
 # This script switches the boot entry to Windows and reboots.
-# It requires passwordless sudo for efibootmgr and reboot.
-sudo /usr/sbin/efibootmgr -n "$WINDOWS_ENTRY_ID"
-sudo /usr/bin/systemctl reboot
+sudo /usr/sbin/efibootmgr -n "$WINDOWS_ENTRY_ID" && sudo /usr/bin/systemctl reboot
 EOF
 
 chmod +x "$FINAL_SCRIPT_PATH"
-echo "[OK] Boot script created at $FINAL_SCRIPT_PATH"
+# Set ownership so the user can manage the file
+chown "$SUDO_USER":"$SUDO_USER" "$FINAL_SCRIPT_PATH"
+echo "[OK] 'boot-windows.sh' script created successfully on your Desktop."
 
-# Create the sudoers rule exactly like your manual method, but with reboot included.
-# This is the critical fix.
-echo '%wheel ALL=(ALL) NOPASSWD: /usr/sbin/efibootmgr, /usr/bin/systemctl reboot' | sudo tee "$SUDOERS_FILE" > /dev/null
-sudo chmod 0440 "$SUDOERS_FILE"
-echo "[OK] Sudoers rule for passwordless reboot created successfully."
-
-# --- 4. Re-enable SteamOS read-only mode ---
+# The sudoers rule created manually via 'visudo' is independent of this script's location
+# and will continue to work. We assume it has been set correctly.
 echo
 echo "--- [STEP 4/4] Re-enabling SteamOS read-only mode..."
 sudo steamos-readonly enable
 echo "[OK] Filesystem is now protected again."
-echo
 
-# --- Final instructions ---
+# Final instructions
+echo
 echo "================================================="
 echo "=== SETUP COMPLETE!                           ==="
 echo "================================================="
 echo
-echo "The system is now fully configured."
-echo "Please add the '/usr/local/bin/boot-windows.sh' script to Steam."
-echo "No launch options are needed."
+echo "The executable file 'boot-windows.sh' is now on your Desktop."
+echo "You can now add this file to Steam as a Non-Steam Game."
