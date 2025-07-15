@@ -1,28 +1,29 @@
 #!/bin/bash
 #
-# Boot to Windows - Installer Script for SteamOS
-# Final User-Friendly Version: Creates the final script on the user's Desktop.
+# Boot to Windows - FINAL Automated Installer for SteamOS
+# This script creates a persistent solution that survives reboots.
 #
 
 echo "================================================="
 echo "=== Boot to Windows Shortcut Installer        ==="
 echo "================================================="
+echo
 
-# Verify script is run as root and get the original user.
+# Step 1: Verify the script is run correctly
 if [ -z "$SUDO_USER" ]; then
-    echo "[ERROR] This script must be run with 'sudo'. Aborting."
+    echo "[ERROR] This script must be run via the .desktop file using sudo."
     exit 1
 fi
 
-# Temporarily disable SteamOS read-only mode
+# Step 2: Disable Read-Only Filesystem to make system changes
 echo
-echo "--- [STEP 1/4] Disabling SteamOS read-only mode..."
+echo "--- [1/4] Temporarily disabling read-only filesystem..."
 sudo steamos-readonly disable
 echo "[OK] Filesystem is now writeable."
 
-# Find Windows Boot Manager entry
+# Step 3: Find the Windows Boot Entry
 echo
-echo "--- [STEP 2/4] Searching for Windows Boot Manager entry..."
+echo "--- [2/4] Searching for Windows Boot Manager entry..."
 WINDOWS_ENTRY_ID=$(efibootmgr | grep -i "Windows Boot Manager" | grep -oP 'Boot\K\d{4}')
 
 if [ -z "$WINDOWS_ENTRY_ID" ]; then
@@ -32,34 +33,57 @@ if [ -z "$WINDOWS_ENTRY_ID" ]; then
 fi
 echo "[OK] Found Windows Boot entry: Boot$WINDOWS_ENTRY_ID"
 
-# Create the final boot script on the user's Desktop
-FINAL_SCRIPT_PATH="/home/$SUDO_USER/Desktop/boot-windows.sh"
+# Step 4: Create the final boot script on the user's Desktop (a persistent location)
+FINAL_SCRIPT_PATH="/home/$SUDO_USER/Desktop/Boot to Windows.sh"
 echo
-echo "--- [STEP 3/4] Creating the final boot script on your Desktop..."
+echo "--- [3/4] Creating final boot script on your Desktop..."
 
 cat << EOF > "$FINAL_SCRIPT_PATH"
 #!/bin/bash
-# This script switches the boot entry to Windows and reboots.
+# This script reboots the system into Windows.
 sudo /usr/sbin/efibootmgr -n "$WINDOWS_ENTRY_ID" && sudo /usr/bin/systemctl reboot
 EOF
 
 chmod +x "$FINAL_SCRIPT_PATH"
-# Set ownership so the user can manage the file
 chown "$SUDO_USER":"$SUDO_USER" "$FINAL_SCRIPT_PATH"
-echo "[OK] 'boot-windows.sh' script created successfully on your Desktop."
+echo "[OK] 'Boot to Windows.sh' created successfully."
 
-# The sudoers rule created manually via 'visudo' is independent of this script's location
-# and will continue to work. We assume it has been set correctly.
+# Step 5: Create and enable the systemd service for persistent sudoers rule
+SERVICE_FILE_PATH="/etc/systemd/system/boot-to-windows-sudo.service"
+SUDOERS_FILE_PATH="/etc/sudoers.d/99-boot-to-windows-rule"
 echo
-echo "--- [STEP 4/4] Re-enabling SteamOS read-only mode..."
+echo "--- [4/4] Creating permanent auto-start service for password rule..."
+
+cat << EOF > "$SERVICE_FILE_PATH"
+[Unit]
+Description=Set passwordless sudo rule for the Boot to Windows script
+DefaultDependencies=no
+After=sysinit.target
+Before=shutdown.target
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh -c "echo '%wheel ALL=(ALL) NOPASSWD: /usr/sbin/efibootmgr, /usr/bin/systemctl reboot' > $SUDOERS_FILE_PATH && chmod 0440 $SUDOERS_FILE_PATH"
+ExecStop=/bin/rm $SUDOERS_FILE_PATH
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# Enable the service so it runs on every boot
+systemctl enable "$SERVICE_FILE_PATH" > /dev/null 2>&1
+# Start the service once immediately
+systemctl start boot-to-windows-sudo.service
+
+echo "[OK] Permanent password rule has been set up."
+
+# Re-enable the read-only filesystem
 sudo steamos-readonly enable
-echo "[OK] Filesystem is now protected again."
-
-# Final instructions
+echo "[OK] Filesystem is protected again."
 echo
+
 echo "================================================="
 echo "=== SETUP COMPLETE!                           ==="
 echo "================================================="
-echo
-echo "The executable file 'boot-windows.sh' is now on your Desktop."
-echo "You can now add this file to Steam as a Non-Steam Game."
+echo "You can now add 'Boot to Windows.sh' from your Desktop to Steam."
