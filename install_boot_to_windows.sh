@@ -1,40 +1,40 @@
 #!/bin/bash
 #
-# FINAL ONE-KLICK INSTALLER: Boot to Windows (SteamOS)
-# Unterstützt Desktop + Gaming Mode, 100 % ohne Passwort
+# FINAL ONE-CLICK INSTALLER: Boot to Windows (SteamOS)
+# Works in Desktop & Gaming Mode – no password prompt required.
 #
 
 echo "================================================="
-echo "=== Boot to Windows | One-Klick Setup         ==="
+echo "=== Boot to Windows | One-Click Setup         ==="
 echo "================================================="
 echo
 
-# Step 1: Muss via sudo gestartet werden
+# Step 1: Must be run with sudo
 if [ -z "$SUDO_USER" ]; then
-    echo "[ERROR] Bitte über .desktop-Datei mit sudo ausführen!"
+    echo "[ERROR] This script must be run via .desktop launcher with sudo."
     exit 1
 fi
 
-# Schreibschutz deaktivieren
-echo "[INFO] Deaktiviere temporär den Schreibschutz..."
+# Disable SteamOS read-only mode
+echo "[INFO] Temporarily disabling SteamOS read-only mode..."
 steamos-readonly disable
-echo "[OK] Schreibschutz deaktiviert."
+echo "[OK] Read-only mode disabled."
 echo
 
-# Windows Boot-ID suchen
-echo "[INFO] Suche Windows Boot Manager..."
+# Detect Windows Boot ID
+echo "[INFO] Searching for Windows Boot Manager..."
 WINDOWS_ENTRY_ID=$(efibootmgr | grep -i "Windows Boot Manager" | grep -oP 'Boot\K\d{4}')
 if [ -z "$WINDOWS_ENTRY_ID" ]; then
-    echo "[ERROR] Windows Boot Manager konnte nicht gefunden werden!"
+    echo "[ERROR] Windows Boot Manager not found."
     steamos-readonly enable
     exit 1
 fi
-echo "[OK] Gefunden: Boot$WINDOWS_ENTRY_ID"
+echo "[OK] Found: Boot$WINDOWS_ENTRY_ID"
 echo
 
-# systemd-Service anlegen
+# Create systemd service
 SERVICE_FILE="/etc/systemd/system/boot-to-windows.service"
-echo "[INFO] Erstelle systemd-Service unter $SERVICE_FILE..."
+echo "[INFO] Creating systemd service at $SERVICE_FILE..."
 
 cat <<EOF > "$SERVICE_FILE"
 [Unit]
@@ -51,12 +51,12 @@ EOF
 chmod 644 "$SERVICE_FILE"
 systemctl daemon-reexec
 systemctl daemon-reload
-echo "[OK] systemd-Service eingerichtet."
+echo "[OK] systemd service created."
 echo
 
-# Bootskript auf Desktop
+# Create desktop launch script
 BOOT_SCRIPT="/home/$SUDO_USER/Desktop/Boot to Windows.sh"
-echo "[INFO] Erstelle Bootskript auf dem Desktop..."
+echo "[INFO] Creating shortcut on Desktop..."
 
 cat <<EOF > "$BOOT_SCRIPT"
 #!/bin/bash
@@ -65,12 +65,12 @@ EOF
 
 chmod +x "$BOOT_SCRIPT"
 chown "$SUDO_USER:$SUDO_USER" "$BOOT_SCRIPT"
-echo "[OK] Skript erstellt: $BOOT_SCRIPT"
+echo "[OK] Created: $BOOT_SCRIPT"
 echo
 
-# Polkit-Regel hinzufügen
+# Add polkit rule to allow systemctl start without password
 POLKIT_FILE="/etc/polkit-1/rules.d/99-boot-to-windows.rules"
-echo "[INFO] Erlaube systemctl-Aufruf für Benutzer '$SUDO_USER' ohne Passwort..."
+echo "[INFO] Adding Polkit rule for user '$SUDO_USER'..."
 
 mkdir -p /etc/polkit-1/rules.d
 
@@ -84,24 +84,24 @@ polkit.addRule(function(action, subject) {
 EOF
 
 chmod 644 "$POLKIT_FILE"
-echo "[OK] Polkit-Regel erstellt: $POLKIT_FILE"
+echo "[OK] Polkit rule created: $POLKIT_FILE"
 echo
 
-# Schreibschutz wieder aktivieren
-echo "[INFO] Aktiviere Schreibschutz erneut..."
+# Re-enable read-only mode
+echo "[INFO] Re-enabling SteamOS read-only mode..."
 steamos-readonly enable
-echo "[OK] System geschützt."
+echo "[OK] System protection restored."
 echo
 
-# Fertig
+# Done
 echo "================================================="
-echo "=== INSTALLATION ABGESCHLOSSEN                ==="
+echo "=== INSTALLATION COMPLETE                     ==="
 echo "================================================="
-echo "✔ systemd-Service: boot-to-windows.service"
-echo "✔ Bootskript:     $BOOT_SCRIPT"
-echo "✔ Polkit-Regel:   $POLKIT_FILE"
+echo "✔ systemd service: boot-to-windows.service"
+echo "✔ shortcut:        $BOOT_SCRIPT"
+echo "✔ Polkit rule:     $POLKIT_FILE"
 echo
-echo "➡ Jetzt 'Boot to Windows.sh' in Steam einfügen."
-echo "➡ Starte es im Gaming Mode – du wirst ohne Passwort direkt nach Windows gebootet."
+echo "➡ Add the script to Steam manually."
+echo "➡ You can now reboot into Windows from Gaming Mode."
 echo
-echo "✅ Viel Erfolg!"
+echo "✅ Enjoy!"
