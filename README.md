@@ -48,7 +48,7 @@ This script modifies system-level configurations. While it is designed to be saf
 The installation is fully automated. You only need to run the installer once.
 
 1.  **Switch to Desktop Mode** on your Steam Deck.
-2.  **Download the Installer:** Download the `Boot_to_Windows_Installer.desktop` file from the [latest release on this GitHub page](https://github.com/Delil-A11yX/SteamOS-Boot-to-Windows-Shortcut/releases/download/V1.0/Boot_to_Windows.desktop.pdf).
+2.  **Download the Installer:** Download the `Boot_to_Windows.desktop` file from the [latest release on this GitHub page](https://github.com/Delil-A11yX/SteamOS-Boot-to-Windows-Shortcut/releases/download/V1.0/Boot_to_Windows.desktop).
 3.  **Run the Installer:**
     * Move the downloaded `.desktop` file to your Desktop.
     * Double-click the installer icon.
