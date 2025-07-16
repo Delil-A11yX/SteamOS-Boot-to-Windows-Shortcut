@@ -1,8 +1,9 @@
 [Desktop Entry]
 Name=Boot to Windows Installer
 Comment=Sets up a shortcut to boot directly into Windows from Gaming Mode.
-Exec=konsole -e "bash -c \\"curl -sL 'https://raw.githubusercontent.com/Delil-A11yX/SteamOS-Boot-to-Windows-Shortcut/main/install_boot_to_windows.sh' > /tmp/install_boot_to_windows.sh && chmod +x /tmp/install_boot_to_windows.sh && sudo /tmp/install_boot_to_windows.sh; echo; read -p 'Press Enter to close this window...'\\""
+Exec=konsole -e bash -c 'echo "================================================="; echo "This installer needs administrator access."; echo "It will set up a system service and permissions to reboot into Windows."; echo "Please review the GitHub README if unsure."; echo; read -p "Press Enter to continue..." && curl -sL https://raw.githubusercontent.com/Delil-A11yX/SteamOS-Boot-to-Windows-Shortcut/main/install_boot_to_windows.sh > /tmp/install_boot_to_windows.sh && chmod +x /tmp/install_boot_to_windows.sh && sudo /tmp/install_boot_to_windows.sh; echo; read -p "Installation finished. Press Enter to close this window..."'
 Icon=utilities-terminal
 Terminal=true
 Type=Application
 StartupNotify=true
+Categories=System;Utility;
