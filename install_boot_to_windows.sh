@@ -1,78 +1,87 @@
 #!/bin/bash
 #
-# FINAL INSTALLER FOR "BOOT TO WINDOWS" ON STEAMOS (SAFE VERSION)
+# AUTO-INSTALLER: Boot to Windows via systemd (SteamOS)
+# No sudoers hacks. Fully Gaming Mode compatible. One-click setup.
 #
 
 echo "================================================="
-echo "=== Boot to Windows | Final Setup             ==="
+echo "=== Boot to Windows | One-Klick Setup         ==="
 echo "================================================="
 echo
 
-# Step 1: Check for correct execution (must be run via sudo)
+# Check sudo
 if [ -z "$SUDO_USER" ]; then
-    echo "[ERROR] This script must be run via a .desktop file using sudo."
+    echo "[ERROR] Dieses Skript muss via .desktop-Datei mit sudo gestartet werden."
     exit 1
 fi
 
-# Step 2: Make filesystem writeable
-echo "[INFO] Temporarily disabling SteamOS read-only mode..."
+# Schreibschutz deaktivieren
+echo "[INFO] Deaktiviere temporär den Schreibschutz..."
 steamos-readonly disable
-echo "[OK] Filesystem is now writeable."
+echo "[OK] Schreibgeschützt ist deaktiviert."
 echo
 
-# Step 3: Detect Windows Boot Entry
-echo "[INFO] Searching for Windows Boot Manager entry..."
+# Windows Boot ID ermitteln
+echo "[INFO] Ermittle Windows Boot Manager ID..."
 WINDOWS_ENTRY_ID=$(efibootmgr | grep -i "Windows Boot Manager" | grep -oP 'Boot\K\d{4}')
 if [ -z "$WINDOWS_ENTRY_ID" ]; then
-    echo "[ERROR] Could not find a Windows Boot Manager entry via efibootmgr."
+    echo "[ERROR] Windows Boot Manager konnte nicht gefunden werden."
     steamos-readonly enable
     exit 1
 fi
-echo "[OK] Found Windows Boot entry: Boot$WINDOWS_ENTRY_ID"
+echo "[OK] Gefundene Boot-ID: $WINDOWS_ENTRY_ID"
 echo
 
-# Step 4: Create Desktop Boot Script
-FINAL_SCRIPT_PATH="/home/$SUDO_USER/Desktop/Boot to Windows.sh"
-echo "[INFO] Creating boot script on your Desktop..."
+# systemd-Service einrichten
+SERVICE_PATH="/etc/systemd/system/boot-to-windows.service"
+echo "[INFO] Erstelle systemd-Service unter $SERVICE_PATH..."
 
-cat << EOF > "$FINAL_SCRIPT_PATH"
-#!/bin/bash
-# This script directly boots into Windows. Requires sudoers rule.
-sudo /usr/sbin/efibootmgr -n $WINDOWS_ENTRY_ID && sudo /usr/bin/systemctl reboot
+cat <<EOF > "$SERVICE_PATH"
+[Unit]
+Description=Boot into Windows and reboot
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/sbin/efibootmgr -n $WINDOWS_ENTRY_ID
+ExecStartPost=/usr/bin/systemctl reboot
+User=root
 EOF
 
-chmod +x "$FINAL_SCRIPT_PATH"
-chown "$SUDO_USER":"$SUDO_USER" "$FINAL_SCRIPT_PATH"
-echo "[OK] Script created at: $FINAL_SCRIPT_PATH"
+chmod 644 "$SERVICE_PATH"
+systemctl daemon-reexec
+systemctl daemon-reload
+echo "[OK] Service erstellt und registriert."
 echo
 
-# Step 5: Set up password-less sudo rule
-SUDOERS_FILE="/etc/sudoers.d/99-boot-to-windows-permissions"
-echo "[INFO] Creating password-less sudo rule for $SUDO_USER..."
-echo "$SUDO_USER ALL=(ALL) NOPASSWD: /usr/sbin/efibootmgr, /usr/bin/systemctl reboot" | tee "$SUDOERS_FILE" > /dev/null
-chmod 0440 "$SUDOERS_FILE"
-echo "[OK] Sudoers rule applied successfully."
+# Desktop-Skript erstellen
+BOOT_SCRIPT="/home/$SUDO_USER/Desktop/Boot to Windows.sh"
+echo "[INFO] Erstelle Startskript auf dem Desktop..."
+
+cat <<EOF > "$BOOT_SCRIPT"
+#!/bin/bash
+systemctl start boot-to-windows.service
+EOF
+
+chmod +x "$BOOT_SCRIPT"
+chown "$SUDO_USER:$SUDO_USER" "$BOOT_SCRIPT"
+echo "[OK] Startskript: $BOOT_SCRIPT"
 echo
 
-# Step 6: Re-enable read-only mode
-echo "[INFO] Re-enabling SteamOS read-only protection..."
+# SteamOS wieder schreibgeschützt machen
+echo "[INFO] Aktiviere wieder den Schreibschutz..."
 steamos-readonly enable
-echo "[OK] Filesystem is protected again."
+echo "[OK] Schreibschutz aktiv."
 echo
 
-# Step 7: Manual instructions
+# Fertig
 echo "================================================="
-echo "=== SETUP COMPLETE                            ==="
+echo "=== SETUP ABGESCHLOSSEN                       ==="
 echo "================================================="
-echo "✔ Boot script created at: $FINAL_SCRIPT_PATH"
-echo "✔ sudoers rule added:     $SUDOERS_FILE"
+echo "✔ systemd-Service: boot-to-windows.service"
+echo "✔ Startskript:    $BOOT_SCRIPT"
 echo
-echo "➡ Final step (manual):"
-echo "1. Open Steam in Desktop Mode."
-echo "2. Go to 'Games' → 'Add a Non-Steam Game to My Library...'"
-echo "3. Select: Boot to Windows.sh"
-echo "4. Confirm."
+echo "➡ Füge diese Datei in Steam hinzu:"
+echo "   $BOOT_SCRIPT"
 echo
-echo "💡 Optional: Right-click the shortcut in Steam → Properties → Rename → Change icon if desired."
-echo
-echo "✅ Once done, you can launch it from Gaming Mode. No password will be asked."
+echo "✅ Du kannst jetzt aus dem Gaming Mode direkt in Windows booten – ohne Passwort, ohne Terminal."
