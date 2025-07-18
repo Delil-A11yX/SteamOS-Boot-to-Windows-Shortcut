@@ -14,7 +14,7 @@ For those interested in the technical details, here’s a step-by-step breakdown
 2.  **Automatic Detection:** The script automatically scans your system's EFI boot entries using `efibootmgr` to find the unique ID for the "Windows Boot Manager". This means you don't have to find it manually.
 3.  **Service Creation:** It creates a small background service (`systemd` service). This service holds the two core commands: setting the next boot target to Windows (`efibootmgr -n...`) and rebooting the system (`systemctl reboot`).
 4.  **Safe Permission Granting:** To allow you to trigger this service without a password, a `Polkit` rule is created. This is the modern and secure way on Linux to grant specific permissions for system actions, without touching the global `sudoers` file.
-5.  **Shortcut Creation:** A simple, executable shortcut script is placed on your Desktop. This script's only job is to tell `systemd` to start the background service when you click it.
+5.  **Shortcut Creation:** A simple, executable shortcut script is placed on your Desktop. This script's only job is to start the background service when you click it.
 6.  **System Protection:** Finally, the installer re-enables the read-only filesystem, leaving your system safe and protected.
 
 ## Key Features
@@ -23,6 +23,29 @@ For those interested in the technical details, here’s a step-by-step breakdown
 * **No Password Needed:** After setup, no password is required to boot into Windows.
 * **Gaming Mode Ready:** Launch the shortcut directly from your Steam library like any other game.
 * **Modern & Safe:** Uses `systemd` services and `Polkit` rules for permissions, which is the modern and preferred method on Linux.
+
+---
+
+## Compatibility & Limitations
+
+This script is designed to be as simple as possible and therefore only supports the most common dual-boot configuration. Please read these limitations before use:
+
+* **Internal Drive Only:** The script is designed for a standard dual-boot where **Windows is installed on an internal SSD/NVMe drive**. It will likely fail if you are running Windows from an external USB drive, as the boot entry name will be different.
+* **No Custom Bootloaders:** This script is only compatible with the default **SteamOS bootloader (`systemd-boot`)**. If you use a custom bootloader like Clover, rEFInd, or GRUB, this script will not work as intended and may simply reboot you into your bootloader's selection menu.
+
+### How to Adapt the Script (Advanced Users)
+
+If you have a non-standard setup (like a Windows installation on a USB drive), the installer will likely fail because it can't find the "Windows Boot Manager" entry. You can adapt the script with these manual steps:
+
+1.  **Find Your Boot Entry Name:** Open a Konsole terminal in Desktop Mode and run `sudo efibootmgr`. Look through the list to find the exact name of your Windows entry (e.g., `UEFI: SanDisk Extreme` or `Windows To Go`).
+2.  **Edit the Installer Script:**
+    * Download the `install_boot_to_windows.sh` script from the GitHub repository.
+    * Open it with a text editor (like Kate).
+    * Find this line (around line 25):
+        `WINDOWS_ENTRY_ID=$(efibootmgr | grep -i "Windows Boot Manager" | grep -oP 'Boot\K\d{4}')`
+    * Replace `"Windows Boot Manager"` with the exact name you found in step 1. For example:
+        `WINDOWS_ENTRY_ID=$(efibootmgr | grep -i "UEFI: SanDisk Extreme" | grep -oP 'Boot\K\d{4}')`
+3.  **Run the Modified Script:** Save your changes and run the modified local script from the terminal with `sudo bash ./install_boot_to_windows.sh`.
 
 ---
 
@@ -49,6 +72,7 @@ The installation is fully automated. You only need to run the installer once.
 
 1.  **Switch to Desktop Mode** on your Steam Deck.
 2.  [➡️ **Click Here to Download the Boot to Windows Installer** ⬅️](https://github.com/Delil-A11yX/SteamOS-Boot-to-Windows-Shortcut/releases/download/V1.0/Boot_to_Windows.desktop)
+3.  **Run the Installer:**
     * Move the downloaded `.desktop` file to your Desktop.
     * Double-click the installer icon.
     * A prompt will appear. Choose **"Execute in Terminal"**.
